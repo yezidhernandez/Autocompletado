@@ -5,6 +5,7 @@
 @using PiedraAzul.Client.Services.AdminServices
 @using PiedraAzul.Client.Services.GraphQLServices
 @using PiedraAzul.Contracts.Enums
+@inject UserState UserState
 @inject IJSRuntime JS
 @inject GraphQLDoctorService DoctorService
 @inject ScheduleConfigAdminService ScheduleConfigService
@@ -54,8 +55,8 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                         </div>
                         <select class="flex-1 bg-transparent border-none focus:outline-none text-slate-700 font-bold"
-                                value="@EditModel.SpecialistId"
-                                @onchange="OnSpecialistChanged">
+                                @bind="EditModel.SpecialistId"
+                                @bind:after="OnSpecialistSelectedAsync">
                             <option value="">Selecciona un especialista</option>
                             @foreach (var doctor in Doctors)
                             {
@@ -131,7 +132,7 @@
                             <div class="flex items-center gap-3">
                                 <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex items-center gap-4 min-w-[200px]">
                                     <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">Intervalo de atención</span>
-                                    <select value="@EditModel.IntervalMinutes" @onchange="OnIntervalChanged" class="flex-1 bg-transparent border-none font-black text-slate-700 focus:outline-none">
+                                    <select @bind="EditModel.IntervalMinutes" @bind:after="RebuildSlots" class="flex-1 bg-transparent border-none font-black text-slate-700 focus:outline-none">
                                         <option value="5">5 min</option>
                                         <option value="10">10 min</option>
                                         <option value="15">15 min</option>
@@ -160,11 +161,11 @@
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Hora de Apertura</label>
-                                            <input type="time" value="@EditModel.StartTime" @onchange="OnStartTimeChanged" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
+                                            <input type="time" @bind="EditModel.StartTime" @bind:after="RebuildSlots" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Hora de Cierre</label>
-                                            <input type="time" value="@EditModel.EndTime" @onchange="OnEndTimeChanged" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
+                                            <input type="time" @bind="EditModel.EndTime" @bind:after="RebuildSlots" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
                                         </div>
                                         <button type="button" @onclick="() => showConfigPopover = false" class="w-full bg-primary text-white py-5 rounded-2xl font-black text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all mt-4">
                                             Aplicar
@@ -291,37 +292,14 @@
             .ToList();
     }
 
-    private async Task OnSpecialistChanged(ChangeEventArgs args)
+    private async Task OnSpecialistSelectedAsync()
     {
-        EditModel.SpecialistId = args.Value?.ToString() ?? string.Empty;
-
         if (string.IsNullOrWhiteSpace(EditModel.SpecialistId))
         {
             return;
         }
 
         await LoadSelectedSpecialistConfigAsync();
-    }
-
-    private void OnIntervalChanged(ChangeEventArgs args)
-    {
-        if (int.TryParse(args.Value?.ToString(), out var interval))
-        {
-            EditModel.IntervalMinutes = interval;
-            RebuildSlots();
-        }
-    }
-
-    private void OnStartTimeChanged(ChangeEventArgs args)
-    {
-        EditModel.StartTime = args.Value?.ToString() ?? EditModel.StartTime;
-        RebuildSlots();
-    }
-
-    private void OnEndTimeChanged(ChangeEventArgs args)
-    {
-        EditModel.EndTime = args.Value?.ToString() ?? EditModel.EndTime;
-        RebuildSlots();
     }
 
     private async Task LoadSelectedSpecialistConfigAsync()
