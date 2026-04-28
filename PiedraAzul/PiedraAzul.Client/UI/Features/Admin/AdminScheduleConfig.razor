@@ -1,5 +1,6 @@
 @page "/admin/configurar-horario"
 @layout PiedraAzul.Client.UI.Shared.Layout.EmptyLayout
+@using PiedraAzul.Client.Models.Admin
 @using PiedraAzul.Client.Models.Schedule
 @using PiedraAzul.Client.Models.GraphQL
 @using PiedraAzul.Client.Services.Schedule
@@ -55,7 +56,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                         </div>
                         <select class="flex-1 bg-transparent border-none focus:outline-none text-slate-700 font-bold"
-                                @bind="EditModel.DoctorId"
+                                @bind="EditModel.SpecialistId"
                                 @bind:after="OnSpecialistSelectedAsync">
                             <option value="">Selecciona un especialista</option>
                             @foreach (var doctor in Doctors)
@@ -67,7 +68,7 @@
                             CARGAR
                         </button>
                     </div>
-                    <ValidationMessage For="() => EditModel.DoctorId" class="text-red-500 text-xs ml-1" />
+                    <ValidationMessage For="() => EditModel.SpecialistId" class="text-red-500 text-xs ml-1" />
                 </div>
             </div>
 
@@ -255,7 +256,7 @@
     private readonly List<DaySchedule> WeekDays = new();
     private readonly List<string> Hours = new();
     private List<DoctorGQL> Doctors = new();
-    private ScheduleConfigModel EditModel { get; set; } = new();
+    private ScheduleConfigEditModel EditModel { get; set; } = new();
     private bool showConfigPopover;
     private bool IsSaving;
     private string? FeedbackMessage;
@@ -294,7 +295,7 @@
 
     private async Task OnSpecialistSelectedAsync()
     {
-        if (string.IsNullOrWhiteSpace(EditModel.DoctorId))
+        if (string.IsNullOrWhiteSpace(EditModel.SpecialistId))
         {
             return;
         }
@@ -304,20 +305,19 @@
 
     private async Task LoadSelectedSpecialistConfigAsync()
     {
-        if (string.IsNullOrWhiteSpace(EditModel.DoctorId))
+        if (string.IsNullOrWhiteSpace(EditModel.SpecialistId))
         {
             return;
         }
 
-        var doctorId = EditModel.DoctorId;
+        var doctorId = EditModel.SpecialistId;
         var loaded = await ScheduleConfigService.GetByDoctorIdAsync(doctorId);
         if (loaded is null)
         {
             return;
         }
 
-        loaded.DoctorId = doctorId;
-        EditModel = loaded;
+        EditModel = ToEditModel(loaded);
         FeedbackMessage = null;
         RebuildSlots();
     }
@@ -411,7 +411,7 @@
 
     private async Task HandleValidSubmit()
     {
-        if (string.IsNullOrWhiteSpace(EditModel.DoctorId))
+        if (string.IsNullOrWhiteSpace(EditModel.SpecialistId))
         {
             FeedbackMessage = "Selecciona un especialista para guardar.";
             IsErrorFeedback = true;
@@ -421,7 +421,7 @@
         IsSaving = true;
         FeedbackMessage = null;
 
-        var saveResult = await ScheduleConfigService.SaveAsync(EditModel);
+        var saveResult = await ScheduleConfigService.SaveAsync(ToScheduleConfigModel(EditModel));
         if (saveResult.IsSuccess && saveResult.Value)
         {
             FeedbackMessage = "Configuración guardada correctamente.";
@@ -447,6 +447,34 @@
         var diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
         return date.Date.AddDays(-diff);
     }
+
+    private static ScheduleConfigEditModel ToEditModel(ScheduleConfigModel model) => new()
+    {
+        SpecialistId = model.DoctorId,
+        WeekWindowInWeeks = model.WeekWindowInWeeks,
+        StartTime = model.StartTime,
+        EndTime = model.EndTime,
+        IntervalMinutes = model.IntervalMinutes,
+        MondayEnabled = model.MondayEnabled,
+        TuesdayEnabled = model.TuesdayEnabled,
+        WednesdayEnabled = model.WednesdayEnabled,
+        ThursdayEnabled = model.ThursdayEnabled,
+        FridayEnabled = model.FridayEnabled
+    };
+
+    private static ScheduleConfigModel ToScheduleConfigModel(ScheduleConfigEditModel model) => new()
+    {
+        DoctorId = model.SpecialistId,
+        WeekWindowInWeeks = model.WeekWindowInWeeks,
+        StartTime = model.StartTime,
+        EndTime = model.EndTime,
+        IntervalMinutes = model.IntervalMinutes,
+        MondayEnabled = model.MondayEnabled,
+        TuesdayEnabled = model.TuesdayEnabled,
+        WednesdayEnabled = model.WednesdayEnabled,
+        ThursdayEnabled = model.ThursdayEnabled,
+        FridayEnabled = model.FridayEnabled
+    };
 
     public class DaySchedule
     {
