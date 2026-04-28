@@ -1,4 +1,4 @@
-using PiedraAzul.Client.Models.Admin;
+using PiedraAzul.Client.Models.Schedule;
 
 namespace PiedraAzul.Client.Services.AdminServices;
 
@@ -25,7 +25,7 @@ public class ScheduleConfigAdminService
     public async Task SaveAsync(ScheduleConfigEditModel model, CancellationToken cancellationToken = default)
     {
         await Task.Delay(450, cancellationToken);
-        _store[model.SpecialistId] = Clone(model);
+        _store[model.DoctorId] = Clone(model);
     }
 
     private static ScheduleConfigEditModel BuildDefaultConfig(string specialistId)
@@ -37,30 +37,33 @@ public class ScheduleConfigAdminService
 
         return new ScheduleConfigEditModel
         {
-            SpecialistId = specialistId,
-            WeekWindowInWeeks = 2 + (hash % 3),
-            StartTime = $"{startHour:00}:00",
-            EndTime = $"{endHour:00}:00",
+            DoctorId = specialistId,
+            BookingWindowWeeks = 2 + (hash % 3),
             IntervalMinutes = interval,
-            MondayEnabled = true,
-            TuesdayEnabled = true,
-            WednesdayEnabled = hash % 2 == 0,
-            ThursdayEnabled = true,
-            FridayEnabled = hash % 3 != 0
+            Availability =
+            [
+                new() { DayOfWeek = DayOfWeek.Monday, IsEnabled = true, StartTime = new(startHour, 0, 0), EndTime = new(endHour, 0, 0) },
+                new() { DayOfWeek = DayOfWeek.Tuesday, IsEnabled = true, StartTime = new(startHour, 0, 0), EndTime = new(endHour, 0, 0) },
+                new() { DayOfWeek = DayOfWeek.Wednesday, IsEnabled = hash % 2 == 0, StartTime = new(startHour, 0, 0), EndTime = new(endHour, 0, 0) },
+                new() { DayOfWeek = DayOfWeek.Thursday, IsEnabled = true, StartTime = new(startHour, 0, 0), EndTime = new(endHour, 0, 0) },
+                new() { DayOfWeek = DayOfWeek.Friday, IsEnabled = hash % 3 != 0, StartTime = new(startHour, 0, 0), EndTime = new(endHour, 0, 0) }
+            ]
         };
     }
 
     private static ScheduleConfigEditModel Clone(ScheduleConfigEditModel model) => new()
     {
-        SpecialistId = model.SpecialistId,
-        WeekWindowInWeeks = model.WeekWindowInWeeks,
-        StartTime = model.StartTime,
-        EndTime = model.EndTime,
+        DoctorId = model.DoctorId,
+        BookingWindowWeeks = model.BookingWindowWeeks,
         IntervalMinutes = model.IntervalMinutes,
-        MondayEnabled = model.MondayEnabled,
-        TuesdayEnabled = model.TuesdayEnabled,
-        WednesdayEnabled = model.WednesdayEnabled,
-        ThursdayEnabled = model.ThursdayEnabled,
-        FridayEnabled = model.FridayEnabled
+        Availability = model.Availability
+            .Select(day => new AvailabilityDayModel
+            {
+                DayOfWeek = day.DayOfWeek,
+                IsEnabled = day.IsEnabled,
+                StartTime = day.StartTime,
+                EndTime = day.EndTime
+            })
+            .ToList()
     };
 }

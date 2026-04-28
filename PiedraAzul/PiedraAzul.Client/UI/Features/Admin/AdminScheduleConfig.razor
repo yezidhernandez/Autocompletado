@@ -56,7 +56,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                         </div>
                         <select class="flex-1 bg-transparent border-none focus:outline-none text-slate-700 font-bold"
-                                @bind="EditModel.SpecialistId"
+                                @bind="EditModel.DoctorId"
                                 @bind:after="OnSpecialistSelectedAsync">
                             <option value="">Selecciona un especialista</option>
                             @foreach (var doctor in Doctors)
@@ -68,7 +68,7 @@
                             CARGAR
                         </button>
                     </div>
-                    <ValidationMessage For="() => EditModel.SpecialistId" class="text-red-500 text-xs ml-1" />
+                    <ValidationMessage For="() => EditModel.DoctorId" class="text-red-500 text-xs ml-1" />
                 </div>
             </div>
 
@@ -153,7 +153,7 @@
                                     <div class="space-y-8">
                                         <div>
                                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Ventana de semanas</label>
-                                            <select @bind="EditModel.WeekWindowInWeeks" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all">
+                                            <select @bind="EditModel.BookingWindowWeeks" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all">
                                                 @for (var week = 1; week <= 8; week++)
                                                 {
                                                     <option value="@week">@week semana(s)</option>
@@ -162,11 +162,11 @@
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Hora de Apertura</label>
-                                            <input type="time" @bind="EditModel.StartTime" @bind:after="RebuildSlots" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
+                                            <input type="time" @bind="StartTimeText" @bind:after="ApplyTimeRangeToAvailability" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Hora de Cierre</label>
-                                            <input type="time" @bind="EditModel.EndTime" @bind:after="RebuildSlots" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
+                                            <input type="time" @bind="EndTimeText" @bind:after="ApplyTimeRangeToAvailability" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
                                         </div>
                                         <button type="button" @onclick="() => showConfigPopover = false" class="w-full bg-primary text-white py-5 rounded-2xl font-black text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all mt-4">
                                             Aplicar
@@ -253,7 +253,7 @@
 </div>
 
 @code {
-    private readonly List<DaySchedule> WeekDays = new();
+    private readonly List<DayScheduleModel> WeekDays = new();
     private readonly List<string> Hours = new();
     private List<DoctorGQL> Doctors = new();
     private ScheduleConfigEditModel EditModel { get; set; } = new();
@@ -261,6 +261,8 @@
     private bool IsSaving;
     private string? FeedbackMessage;
     private bool IsErrorFeedback;
+    private string StartTimeText { get; set; } = "08:00";
+    private string EndTimeText { get; set; } = "17:00";
 
     private string SelectedMonthLabel => DateTime.Today.ToString("MMMM yyyy");
 
@@ -269,6 +271,8 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadDoctorsAsync();
+        EnsureAvailabilityDays();
+        SyncTimeRangeInputs();
         RebuildSlots();
     }
 
@@ -295,7 +299,7 @@
 
     private async Task OnSpecialistSelectedAsync()
     {
-        if (string.IsNullOrWhiteSpace(EditModel.SpecialistId))
+        if (string.IsNullOrWhiteSpace(EditModel.DoctorId))
         {
             return;
         }
@@ -305,7 +309,7 @@
 
     private async Task LoadSelectedSpecialistConfigAsync()
     {
-        if (string.IsNullOrWhiteSpace(EditModel.SpecialistId))
+        if (string.IsNullOrWhiteSpace(EditModel.DoctorId))
         {
             return;
         }
@@ -322,28 +326,66 @@
         RebuildSlots();
     }
 
+    private void EnsureAvailabilityDays()
+    {
+        EditModel.Availability ??= [];
+        foreach (var day in new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday })
+        {
+            if (EditModel.Availability.All(x => x.DayOfWeek != day))
+            {
+                EditModel.Availability.Add(new AvailabilityDayModel { DayOfWeek = day, IsEnabled = true, StartTime = new(8, 0, 0), EndTime = new(17, 0, 0) });
+            }
+        }
+    }
+
+    private void SyncTimeRangeInputs()
+    {
+        var sample = EditModel.Availability.FirstOrDefault(x => x.IsEnabled) ?? EditModel.Availability.First();
+        StartTimeText = $"{sample.StartTime.Hours:00}:{sample.StartTime.Minutes:00}";
+        EndTimeText = $"{sample.EndTime.Hours:00}:{sample.EndTime.Minutes:00}";
+    }
+
+    private void ApplyTimeRangeToAvailability()
+    {
+        if (!TryParseTime(StartTimeText, out var start) || !TryParseTime(EndTimeText, out var end))
+        {
+            return;
+        }
+
+        foreach (var day in EditModel.Availability)
+        {
+            day.StartTime = start;
+            day.EndTime = end;
+        }
+
+        RebuildSlots();
+    }
+
     private void RebuildSlots()
     {
+        EnsureAvailabilityDays();
         var weekStart = GetMonday(DateTime.Today);
         WeekDays.Clear();
 
-        var days = new[]
+        var labels = new Dictionary<DayOfWeek, string>
         {
-            ("Lun", 0, EditModel.MondayEnabled),
-            ("Mar", 1, EditModel.TuesdayEnabled),
-            ("Mier", 2, EditModel.WednesdayEnabled),
-            ("Jue", 3, EditModel.ThursdayEnabled),
-            ("Vie", 4, EditModel.FridayEnabled)
+            [DayOfWeek.Monday] = "Lun",
+            [DayOfWeek.Tuesday] = "Mar",
+            [DayOfWeek.Wednesday] = "Mier",
+            [DayOfWeek.Thursday] = "Jue",
+            [DayOfWeek.Friday] = "Vie"
         };
 
-        foreach (var day in days)
+        foreach (var day in EditModel.Availability.Where(x => labels.ContainsKey(x.DayOfWeek)).OrderBy(x => x.DayOfWeek))
         {
-            var date = weekStart.AddDays(day.Item2);
-            var daySchedule = new DaySchedule
+            var offset = (int)day.DayOfWeek - (int)DayOfWeek.Monday;
+            var date = weekStart.AddDays(offset);
+            var daySchedule = new DayScheduleModel
             {
-                DayName = day.Item1,
+                DayName = labels[day.DayOfWeek],
                 DayNumber = date.Day,
-                IsBlocked = !day.Item3
+                DayOfWeek = day.DayOfWeek,
+                IsBlocked = !day.IsEnabled
             };
 
             GenerateSlotsForDay(daySchedule);
@@ -356,8 +398,9 @@
     private void BuildHourLabels()
     {
         Hours.Clear();
+        var firstEnabledDay = EditModel.Availability.FirstOrDefault(x => x.IsEnabled);
 
-        if (!TryParseTime(EditModel.StartTime, out var start) || !TryParseTime(EditModel.EndTime, out var end) || end <= start)
+        if (firstEnabledDay is null || firstEnabledDay.EndTime <= firstEnabledDay.StartTime)
         {
             Hours.Add("08:00");
             Hours.Add("09:00");
@@ -365,31 +408,32 @@
             return;
         }
 
-        for (var time = start; time < end; time = time.Add(TimeSpan.FromHours(1)))
+        for (var time = firstEnabledDay.StartTime; time < firstEnabledDay.EndTime; time = time.Add(TimeSpan.FromHours(1)))
         {
             Hours.Add($"{time.Hours:00}:00");
         }
     }
 
-    private void GenerateSlotsForDay(DaySchedule day)
+    private void GenerateSlotsForDay(DayScheduleModel day)
     {
         day.Slots.Clear();
+        var dayConfig = EditModel.Availability.First(x => x.DayOfWeek == day.DayOfWeek);
 
-        if (!TryParseTime(EditModel.StartTime, out var start) || !TryParseTime(EditModel.EndTime, out var end) || end <= start)
+        if (dayConfig.EndTime <= dayConfig.StartTime)
         {
             return;
         }
 
         var interval = Math.Clamp(EditModel.IntervalMinutes, 5, 60);
-        for (var time = start; time < end; time = time.Add(TimeSpan.FromMinutes(interval)))
+        for (var time = dayConfig.StartTime; time < dayConfig.EndTime; time = time.Add(TimeSpan.FromMinutes(interval)))
         {
-            day.Slots.Add(new TimeSlot { StartTime = $"{time.Hours:00}:{time.Minutes:00}", IsActive = true });
+            day.Slots.Add(new TimeSlotModel { StartTime = $"{time.Hours:00}:{time.Minutes:00}", IsActive = true });
         }
     }
 
     private static bool TryParseTime(string value, out TimeSpan result) => TimeSpan.TryParse(value, out result);
 
-    private IEnumerable<TimeSlot> GetSlotsForHour(DaySchedule day, string hour)
+    private IEnumerable<TimeSlotModel> GetSlotsForHour(DayScheduleModel day, string hour)
     {
         return day.Slots.Where(slot => slot.StartTime.StartsWith(hour[..2], StringComparison.Ordinal));
     }
@@ -399,19 +443,13 @@
         var day = WeekDays.First(x => x.DayName == dayName);
         day.IsBlocked = !day.IsBlocked;
 
-        switch (dayName)
-        {
-            case "Lun": EditModel.MondayEnabled = !day.IsBlocked; break;
-            case "Mar": EditModel.TuesdayEnabled = !day.IsBlocked; break;
-            case "Mier": EditModel.WednesdayEnabled = !day.IsBlocked; break;
-            case "Jue": EditModel.ThursdayEnabled = !day.IsBlocked; break;
-            case "Vie": EditModel.FridayEnabled = !day.IsBlocked; break;
-        }
+        var dayConfig = EditModel.Availability.First(x => x.DayOfWeek == day.DayOfWeek);
+        dayConfig.IsEnabled = !day.IsBlocked;
     }
 
     private async Task HandleValidSubmit()
     {
-        if (string.IsNullOrWhiteSpace(EditModel.SpecialistId))
+        if (string.IsNullOrWhiteSpace(EditModel.DoctorId))
         {
             FeedbackMessage = "Selecciona un especialista para guardar.";
             IsErrorFeedback = true;
