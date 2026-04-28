@@ -1,14 +1,14 @@
 @page "/admin/configurar-horario"
 @layout PiedraAzul.Client.UI.Shared.Layout.EmptyLayout
-@using PiedraAzul.Client.Models.Admin
+@using PiedraAzul.Client.Models.Schedule
 @using PiedraAzul.Client.Models.GraphQL
-@using PiedraAzul.Client.Services.AdminServices
+@using PiedraAzul.Client.Services.Schedule
 @using PiedraAzul.Client.Services.GraphQLServices
 @using PiedraAzul.Contracts.Enums
 @inject UserState UserState
 @inject IJSRuntime JS
 @inject GraphQLDoctorService DoctorService
-@inject ScheduleConfigAdminService ScheduleConfigService
+@inject IScheduleConfigService ScheduleConfigService
 
 <div class="min-h-screen bg-slate-50 pb-12">
 
@@ -55,7 +55,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                         </div>
                         <select class="flex-1 bg-transparent border-none focus:outline-none text-slate-700 font-bold"
-                                @bind="EditModel.SpecialistId"
+                                @bind="EditModel.DoctorId"
                                 @bind:after="OnSpecialistSelectedAsync">
                             <option value="">Selecciona un especialista</option>
                             @foreach (var doctor in Doctors)
@@ -67,7 +67,7 @@
                             CARGAR
                         </button>
                     </div>
-                    <ValidationMessage For="() => EditModel.SpecialistId" class="text-red-500 text-xs ml-1" />
+                    <ValidationMessage For="() => EditModel.DoctorId" class="text-red-500 text-xs ml-1" />
                 </div>
             </div>
 
@@ -255,7 +255,7 @@
     private readonly List<DaySchedule> WeekDays = new();
     private readonly List<string> Hours = new();
     private List<DoctorGQL> Doctors = new();
-    private ScheduleConfigEditModel EditModel { get; set; } = new();
+    private ScheduleConfigModel EditModel { get; set; } = new();
     private bool showConfigPopover;
     private bool IsSaving;
     private string? FeedbackMessage;
@@ -294,7 +294,7 @@
 
     private async Task OnSpecialistSelectedAsync()
     {
-        if (string.IsNullOrWhiteSpace(EditModel.SpecialistId))
+        if (string.IsNullOrWhiteSpace(EditModel.DoctorId))
         {
             return;
         }
@@ -304,14 +304,19 @@
 
     private async Task LoadSelectedSpecialistConfigAsync()
     {
-        if (string.IsNullOrWhiteSpace(EditModel.SpecialistId))
+        if (string.IsNullOrWhiteSpace(EditModel.DoctorId))
         {
             return;
         }
 
-        var specialistId = EditModel.SpecialistId;
-        var loaded = await ScheduleConfigService.GetBySpecialistAsync(specialistId);
-        loaded.SpecialistId = specialistId;
+        var doctorId = EditModel.DoctorId;
+        var loaded = await ScheduleConfigService.GetByDoctorIdAsync(doctorId);
+        if (loaded is null)
+        {
+            return;
+        }
+
+        loaded.DoctorId = doctorId;
         EditModel = loaded;
         FeedbackMessage = null;
         RebuildSlots();
@@ -406,7 +411,7 @@
 
     private async Task HandleValidSubmit()
     {
-        if (string.IsNullOrWhiteSpace(EditModel.SpecialistId))
+        if (string.IsNullOrWhiteSpace(EditModel.DoctorId))
         {
             FeedbackMessage = "Selecciona un especialista para guardar.";
             IsErrorFeedback = true;
@@ -416,21 +421,19 @@
         IsSaving = true;
         FeedbackMessage = null;
 
-        try
+        var saveResult = await ScheduleConfigService.SaveAsync(EditModel);
+        if (saveResult.IsSuccess && saveResult.Value)
         {
-            await ScheduleConfigService.SaveAsync(EditModel);
             FeedbackMessage = "Configuración guardada correctamente.";
             IsErrorFeedback = false;
         }
-        catch
+        else
         {
-            FeedbackMessage = "No se pudo guardar la configuración. Intenta nuevamente.";
+            FeedbackMessage = saveResult.Error?.Message ?? "No se pudo guardar la configuración. Intenta nuevamente.";
             IsErrorFeedback = true;
         }
-        finally
-        {
-            IsSaving = false;
-        }
+
+        IsSaving = false;
     }
 
     private async Task CancelChanges()
