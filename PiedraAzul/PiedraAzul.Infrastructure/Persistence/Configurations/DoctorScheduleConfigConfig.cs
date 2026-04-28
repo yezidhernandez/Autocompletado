@@ -22,12 +22,12 @@ public class DoctorScheduleConfigConfig : IEntityTypeConfiguration<DoctorSchedul
         builder.HasIndex(x => x.DoctorId)
             .IsUnique();
 
-        builder.Navigation("_days")
-            .UsePropertyAccessMode(PropertyAccessMode.Field);
-
         builder.HasMany(x => x.Days)
             .WithOne()
             .HasForeignKey(x => x.DoctorScheduleConfigId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(x => x.Days)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

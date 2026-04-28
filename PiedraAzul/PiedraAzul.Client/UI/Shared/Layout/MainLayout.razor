@@ -29,6 +29,7 @@
                 @if (UserState?.User?.Roles.Contains("Admin") == true)
                 {
                     <a href="/admin" class="transition-colors hover:text-gray-900">Admin</a>
+                    <a href="/admin/configurar-horario" class="transition-colors hover:text-gray-900">Horario</a>
                 }
                 @if (UserState?.User?.Roles.Contains("Doctor") == true)
                 {
