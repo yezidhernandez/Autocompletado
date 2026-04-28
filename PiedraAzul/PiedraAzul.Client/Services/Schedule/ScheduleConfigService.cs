@@ -62,15 +62,14 @@ public class ScheduleConfigService(GraphQLHttpClient client) : IScheduleConfigSe
             query GetScheduleConfigByDoctorId($doctorId: String!) {
                 scheduleConfigByDoctorId(doctorId: $doctorId) {
                     doctorId
-                    weekWindowInWeeks
-                    startTime
-                    endTime
+                    bookingWindowWeeks
                     intervalMinutes
-                    mondayEnabled
-                    tuesdayEnabled
-                    wednesdayEnabled
-                    thursdayEnabled
-                    fridayEnabled
+                    availability {
+                        dayOfWeek
+                        isEnabled
+                        startTime
+                        endTime
+                    }
                 }
             }
             """;
@@ -105,15 +104,15 @@ public class ScheduleConfigService(GraphQLHttpClient client) : IScheduleConfigSe
                     input = new
                     {
                         doctorId = config.DoctorId,
-                        weekWindowInWeeks = config.WeekWindowInWeeks,
-                        startTime = config.StartTime,
-                        endTime = config.EndTime,
+                        bookingWindowWeeks = config.BookingWindowWeeks,
                         intervalMinutes = config.IntervalMinutes,
-                        mondayEnabled = config.MondayEnabled,
-                        tuesdayEnabled = config.TuesdayEnabled,
-                        wednesdayEnabled = config.WednesdayEnabled,
-                        thursdayEnabled = config.ThursdayEnabled,
-                        fridayEnabled = config.FridayEnabled
+                        availability = config.Availability.Select(day => new
+                        {
+                            dayOfWeek = day.DayOfWeek,
+                            isEnabled = day.IsEnabled,
+                            startTime = day.StartTime,
+                            endTime = day.EndTime
+                        }).ToList()
                     }
                 },
                 "saveScheduleConfig");
@@ -128,37 +127,35 @@ public class ScheduleConfigService(GraphQLHttpClient client) : IScheduleConfigSe
 
     private static ScheduleConfigModel BuildDefaultConfig(string doctorId)
     {
-        var hash = Math.Abs(doctorId.GetHashCode());
-        var startHour = 7 + (hash % 3);
-        var endHour = 16 + (hash % 4);
-        var interval = new[] { 10, 15, 20 }[hash % 3];
-
         return new ScheduleConfigModel
         {
             DoctorId = doctorId,
-            WeekWindowInWeeks = 2 + (hash % 3),
-            StartTime = $"{startHour:00}:00",
-            EndTime = $"{endHour:00}:00",
-            IntervalMinutes = interval,
-            MondayEnabled = true,
-            TuesdayEnabled = true,
-            WednesdayEnabled = hash % 2 == 0,
-            ThursdayEnabled = true,
-            FridayEnabled = hash % 3 != 0
+            BookingWindowWeeks = 4,
+            IntervalMinutes = 15,
+            Availability =
+            [
+                new() { DayOfWeek = DayOfWeek.Monday, IsEnabled = true, StartTime = new(8,0,0), EndTime = new(17,0,0) },
+                new() { DayOfWeek = DayOfWeek.Tuesday, IsEnabled = true, StartTime = new(8,0,0), EndTime = new(17,0,0) },
+                new() { DayOfWeek = DayOfWeek.Wednesday, IsEnabled = true, StartTime = new(8,0,0), EndTime = new(17,0,0) },
+                new() { DayOfWeek = DayOfWeek.Thursday, IsEnabled = true, StartTime = new(8,0,0), EndTime = new(17,0,0) },
+                new() { DayOfWeek = DayOfWeek.Friday, IsEnabled = true, StartTime = new(8,0,0), EndTime = new(17,0,0) }
+            ]
         };
     }
 
     private static ScheduleConfigModel Clone(ScheduleConfigModel model) => new()
     {
         DoctorId = model.DoctorId,
-        WeekWindowInWeeks = model.WeekWindowInWeeks,
-        StartTime = model.StartTime,
-        EndTime = model.EndTime,
+        BookingWindowWeeks = model.BookingWindowWeeks,
         IntervalMinutes = model.IntervalMinutes,
-        MondayEnabled = model.MondayEnabled,
-        TuesdayEnabled = model.TuesdayEnabled,
-        WednesdayEnabled = model.WednesdayEnabled,
-        ThursdayEnabled = model.ThursdayEnabled,
-        FridayEnabled = model.FridayEnabled
+        Availability = model.Availability
+            .Select(x => new AvailabilityDayModel
+            {
+                DayOfWeek = x.DayOfWeek,
+                IsEnabled = x.IsEnabled,
+                StartTime = x.StartTime,
+                EndTime = x.EndTime
+            })
+            .ToList()
     };
 }
