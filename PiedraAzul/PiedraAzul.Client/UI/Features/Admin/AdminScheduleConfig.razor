@@ -1,11 +1,11 @@
 @page "/admin/configurar-horario"
 @layout PiedraAzul.Client.UI.Shared.Layout.EmptyLayout
-@using PiedraAzul.Client.Models.Admin
 @using PiedraAzul.Client.Models.Schedule
 @using PiedraAzul.Client.Models.GraphQL
 @using PiedraAzul.Client.Services.Schedule
 @using PiedraAzul.Client.Services.GraphQLServices
 @using PiedraAzul.Contracts.Enums
+@using PiedraAzul.Client.States
 @inject UserState UserState
 @inject IJSRuntime JS
 @inject GraphQLDoctorService DoctorService
@@ -56,8 +56,8 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                         </div>
                         <select class="flex-1 bg-transparent border-none focus:outline-none text-slate-700 font-bold"
-                                @bind="EditModel.DoctorId"
-                                @bind:after="OnSpecialistSelectedAsync">
+                                value="@EditModel.DoctorId"
+                                @onchange="OnDoctorChangedAsync">
                             <option value="">Selecciona un especialista</option>
                             @foreach (var doctor in Doctors)
                             {
@@ -133,7 +133,7 @@
                             <div class="flex items-center gap-3">
                                 <div class="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex items-center gap-4 min-w-[200px]">
                                     <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">Intervalo de atención</span>
-                                    <select @bind="EditModel.IntervalMinutes" @bind:after="RebuildSlots" class="flex-1 bg-transparent border-none font-black text-slate-700 focus:outline-none">
+                                    <select value="@EditModel.IntervalMinutes" @onchange="OnIntervalChanged" class="flex-1 bg-transparent border-none font-black text-slate-700 focus:outline-none">
                                         <option value="5">5 min</option>
                                         <option value="10">10 min</option>
                                         <option value="15">15 min</option>
@@ -162,11 +162,11 @@
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Hora de Apertura</label>
-                                            <input type="time" @bind="StartTimeText" @bind:after="ApplyTimeRangeToAvailability" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
+                                            <input type="time" value="@StartTimeText" @onchange="OnStartTimeChanged" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Hora de Cierre</label>
-                                            <input type="time" @bind="EndTimeText" @bind:after="ApplyTimeRangeToAvailability" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
+                                            <input type="time" value="@EndTimeText" @onchange="OnEndTimeChanged" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all" />
                                         </div>
                                         <button type="button" @onclick="() => showConfigPopover = false" class="w-full bg-primary text-white py-5 rounded-2xl font-black text-sm shadow-xl shadow-primary/20 hover:opacity-90 transition-all mt-4">
                                             Aplicar
@@ -295,6 +295,33 @@
             .Select(x => x.First())
             .OrderBy(x => x.Name)
             .ToList();
+    }
+
+    private async Task OnDoctorChangedAsync(ChangeEventArgs args)
+    {
+        EditModel.DoctorId = args.Value?.ToString() ?? string.Empty;
+        await OnSpecialistSelectedAsync();
+    }
+
+    private void OnIntervalChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var interval))
+        {
+            EditModel.IntervalMinutes = Math.Clamp(interval, 5, 60);
+            RebuildSlots();
+        }
+    }
+
+    private void OnStartTimeChanged(ChangeEventArgs args)
+    {
+        StartTimeText = args.Value?.ToString() ?? StartTimeText;
+        ApplyTimeRangeToAvailability();
+    }
+
+    private void OnEndTimeChanged(ChangeEventArgs args)
+    {
+        EndTimeText = args.Value?.ToString() ?? EndTimeText;
+        ApplyTimeRangeToAvailability();
     }
 
     private async Task OnSpecialistSelectedAsync()
