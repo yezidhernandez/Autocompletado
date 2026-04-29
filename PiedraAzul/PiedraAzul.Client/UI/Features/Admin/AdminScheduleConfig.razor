@@ -341,7 +341,7 @@
             return;
         }
 
-        var doctorId = EditModel.SpecialistId;
+        var doctorId = EditModel.DoctorId;
         var loaded = await ScheduleConfigService.GetByDoctorIdAsync(doctorId);
         if (loaded is null)
         {
