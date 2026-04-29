@@ -487,6 +487,8 @@
         FeedbackMessage = null;
 
         var saveResult = await ScheduleConfigService.SaveAsync(ToScheduleConfigModel(EditModel));
+        await LoadSelectedSpecialistConfigAsync();
+
         if (saveResult.IsSuccess && saveResult.Value)
         {
             FeedbackMessage = "Configuración guardada correctamente.";
